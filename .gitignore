@@ -1,0 +1,10 @@
+site-data/*
+
+__pycache__/
+.vscode/
+*.log
+.ipynb_checkpoints
+.env
+.venv
+env/
+venv/

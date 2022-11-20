@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>LSML2 FP</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+
+<body>
+
+    <div class="d-flex justify-content-center align-items-center flex-column vh-100">
+        <h1>LSML2 FP</h1>
+        <br>
+        <p>
+            Upload a photo for processing (jpeg file)
+        </p>
+
+        <div>
+            <div class="mb-4 d-flex justify-content-center">
+                <img id="result_preview" src="static/placeholder.png" alt="placeholder" style="width: 400px;" />
+            </div>
+            <div class="d-flex justify-content-center">
+                <div class="btn btn-primary btn-rounded">
+                    <label class="form-label text-white m-1" id="customLabel" for="customFile1">Choose file</label>
+                    <input type="file" class="form-control d-none" id="customFile1" accept=".jpg, .jpeg"
+                        onchange="upload()" />
+
+                    <button class="btn btn-primary" type="button" id="customLoading1" disabled hidden>
+                        <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+                        Processing...
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        function setLoading(val) {
+            const file = document.getElementById("customLabel");
+            const loading = document.getElementById("customLoading1");
+            if (val) {
+                file.setAttribute("hidden", '');
+                loading.removeAttribute("hidden");
+            }
+            else {
+                file.removeAttribute("hidden");
+                loading.setAttribute("hidden", '');
+            }
+        };
+
+        function update_preview(result = {}) {
+            const preview = document.getElementById("result_preview");
+            console.log(result)
+            preview.setAttribute('src', result['result-url']);
+        }
+
+        function upload() {
+            const formData = new FormData();
+            const files = document.getElementById("customFile1");
+            formData.append("file", files.files[0]);
+
+            const requestOptions = {
+                headers: {
+                    "Content-Type": files.files[0].contentType,
+                },
+                mode: "no-cors",
+                method: "POST",
+                files: files.files[0],
+                body: formData,
+            };
+            
+            setLoading(true);
+            
+            fetch("/api/upload", requestOptions)
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error("HTTP status " + response.status);
+                    }
+                    return response.json();
+                })
+                .catch((error) => {
+                    setLoading(false);
+                    console.log(error);
+                    })
+                .then(data => data['task-id'])
+                .then(tid => {console.log(tid); return tid})
+                .then(tid => checkForResults(tid));
+
+        }
+
+        function handleSuccess(r) {
+            setLoading(false);
+            update_preview(r.result);
+        }
+
+        function handleError(r) {
+            setLoading(false);
+            console.error(r);
+        }
+
+        function checkForResults(tid = "") {
+            fetch(`/api/check-result/${tid}`)
+                .then(r => r.json())
+                .then(r => {
+                    console.log("Checking results...");
+                    const stat = r.status;
+                    if (stat == "SUCCESS")
+                        handleSuccess(r);
+                    else if (stat == "error" || stat == "FAILURE")
+                        handleError(r);
+                    else
+                        setTimeout(() => checkForResults(tid), 800);
+                });
+        }
+    </script>
+</body>
+
+</html>

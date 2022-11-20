@@ -1,0 +1,39 @@
+ARG BASE_IMAGE="python:3.8-alpine"
+ARG VIRTUAL_ENV="/opt/venv"
+
+FROM $BASE_IMAGE AS builder
+ARG VIRTUAL_ENV
+ENV VIRTUAL_ENV=$VIRTUAL_ENV \
+    PATH="$VIRTUAL_ENV/bin:$PATH"
+RUN apk add --no-cache \
+        build-base \
+        gcc \
+        gfortran \
+        openblas-dev \
+    && python3 -m venv $VIRTUAL_ENV \
+    && pip3 install --no-cache-dir \
+        numpy torchvision
+
+
+
+FROM $BASE_IMAGE AS production
+ARG VIRTUAL_ENV
+RUN adduser -D worker
+COPY --chown=worker:worker --from=builder $VIRTUAL_ENV $VIRTUAL_ENV
+
+COPY ./requirements.txt /app/requirements.txt
+RUN  pip install -r requirements.txt
+
+ENV VIRTUAL_ENV=$VIRTUAL_ENV \
+    PATH="$VIRTUAL_ENV/bin:$PATH"
+# RUN apk add --no-cache openblas
+
+RUN mkdir -p /app
+WORKDIR /app
+
+COPY transform.py .
+
+CMD celery --app transform worker --autoscale 10 --loglevel=info
+
+
+# TODO: FIXME
